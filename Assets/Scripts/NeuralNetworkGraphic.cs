@@ -4,6 +4,8 @@ using UnityEngine.UI;
 [ExecuteInEditMode]
 public class NeuralNetworkGraphic : Graphic {
 
+    public NeuralNetwork neuralNetwork;
+
     protected override void OnPopulateMesh(VertexHelper vh) {
         Vector2 corner1 = Vector2.zero;
         Vector2 corner2 = Vector2.zero;
@@ -24,6 +26,14 @@ public class NeuralNetworkGraphic : Graphic {
         corner2.y *= rectTransform.rect.height;
 
         vh.Clear();
+
+        for (int i = 0; i < neuralNetwork.layers.Count; i++) {
+            NeuralNetwork.NeuralLayer layer = neuralNetwork.layers[i];
+            float layerX = Mathf.Lerp(corner1.x, corner2.x, 1 / (neuralNetwork.layers.Count) * (i + 1));
+            for (int j = 0; j < layer.nodes.Count; j++) {
+                
+            }
+        }
 
         UIVertex vert = UIVertex.simpleVert;
 
