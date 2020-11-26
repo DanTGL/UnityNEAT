@@ -27,6 +27,10 @@ public class NeuralNetwork : MonoBehaviour {
 
     public class NeuralLayer {
         public List<Node> nodes;
+
+        public NeuralLayer() {
+            nodes = new List<Node>();
+        }
     }
 
     public List<NeuralLayer> layers;
@@ -37,9 +41,18 @@ public class NeuralNetwork : MonoBehaviour {
 
         public float weight;
         public Node inputNode;
-    }
+    }   
 
     void Start() {
+        layers = new List<NeuralLayer>();
+
+        for (int i = 0; i < 5; i++) {
+            NeuralLayer layer = new NeuralLayer();
+            for (int j = 0; j < 2 + i; j++) {
+                layer.nodes.Add(new Node(1.0f));
+            }
+            layers.Add(layer);
+        }
     }
 
     void Update() {
