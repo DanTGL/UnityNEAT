@@ -5,6 +5,10 @@ public class NeuralNetwork : MonoBehaviour {
 
     public static int innovation = 0;
 
+    public List<Connection> connections;
+
+    public HashSet<int> disabledGenes;
+    
     public int hiddenNeurons = 5;
 
     public int numInputs;
@@ -14,27 +18,29 @@ public class NeuralNetwork : MonoBehaviour {
     public List<Node> nodes;
 
     public float[] tests;
-
+    
     public class Node {
         
-        public Connection[] connectionsIn;
-
-        public float bias = 0.0f;
-
-        public Node(Connection[] connectionsIn, float bias) {
-            this.connectionsIn = connectionsIn;
+        float bias = 0.0f;
+        public HashSet<int> connectionsIn;
+        
+        public Node(int[] connectionsIn, float bias) {
+            this.connectionsIn = new HashSet<int>(connectionsIn);
             this.bias = bias;
         }
 
-        public Node(Connection[] connectionsIn) {
-            this.connectionsIn = connectionsIn;
+        public Node(int[] connectionsIn) {
+            this.connectionsIn = new HashSet<int>(connectionsIn);
         }
 
         public Node() {
-
+            this.connectionsIn = new HashSet<int>();
         }
-
+        
     }
+
+    public class InputNode : Node {}
+    public class OutputNode : Node {}
 
     public class Connection {
 
@@ -44,21 +50,11 @@ public class NeuralNetwork : MonoBehaviour {
 
         float weight;
 
-        bool disabled = false;
-
-        public Connection(int input, int output, float weight, int innovation) {
+        public Connection(int input, int output, float weight) {
             this.input = input;
             this.output = output;
             this.weight = weight;
-            this.innovationId = innovation;
-        }
-
-        public void SetDisabled(bool disabled) {
-            this.disabled = disabled;
-        }
-
-        public bool GetDisabled() {
-            return disabled;
+            this.innovationId = innovation++;
         }
         
         public int GetInputNode() {
@@ -79,12 +75,12 @@ public class NeuralNetwork : MonoBehaviour {
         
     }
 
-    public float GetValue(Connection[] connections, float[] inputs) {
+    public float GetValue(HashSet<int> conns, float[] inputs) {
         float result = 0.0f;
 
-        for (int i = 0; i < connections.Length; i++) {
+        foreach (int i in conns) {
             Connection conn = connections[i];
-            if (conn.GetDisabled()) continue;
+            if (disabledGenes.Contains(conn.GetInnovationID())) continue;
 
             if (conn.GetInputNode() < numInputs) {
                 result += conn.GetWeight() * inputs[conn.GetInputNode()];
@@ -108,6 +104,19 @@ public class NeuralNetwork : MonoBehaviour {
     }
 
     void AddNode() {
+        Connection oldConnection;
+
+        do {
+            oldConnection = connections[Random.Range(0, connections.Count - 1)];
+        } while (disabledGenes.Contains(oldConnection.GetInnovationID()));
+
+        disabledGenes.Add(oldConnection.GetInnovationID());
+        Connection conn1 = new Connection(oldConnection.GetInputNode(), nodes.Count, oldConnection.GetWeight());
+        Connection conn2 = new Connection(nodes.Count, oldConnection.GetOutputNode(), 1.0f);
+        connections.Add(conn1);
+        connections.Add(conn2);
+
+        nodes.Add(new Node(new int[] {conn1.GetInnovationID(), conn2.GetInnovationID()}));
     }
 
     void Awake() {
@@ -120,9 +129,8 @@ public class NeuralNetwork : MonoBehaviour {
         for (int i = 0; i < numOutputs; i++) {
             List<Connection> conns = new List<Connection>();
             for (int j = 0; j < numInputs; j++) {
-                conns.Add(new Connection(j, i, Random.Range(-1.0f, 1.0f), ++innovation));
+                conns.Add(new Connection(j, i, Random.Range(-1.0f, 1.0f)));
             }
-            nodes.Add(new Node(conns.ToArray()));
         }
     }
 
