@@ -1,11 +1,10 @@
 ﻿using UnityEngine;
+using System.Linq;
 using System.Collections.Generic;
 
 public class NeuralNetwork : MonoBehaviour {
 
-    public static int innovation = 0;
-
-    public List<Connection> connections;
+    public Dictionary<int, Connection> connections;
 
     public HashSet<int> disabledGenes;
     
@@ -15,18 +14,22 @@ public class NeuralNetwork : MonoBehaviour {
 
     public int numOutputs;
 
-    public List<Node> nodes;
+    public Dictionary<int, Node> nodes;
 
     public float[] tests;
     
     public class Node {
         
+        private static int innovation = 0;
+        int id;
+
         float bias = 0.0f;
         public HashSet<int> connectionsIn;
         
         public Node(int[] connectionsIn, float bias) {
             this.connectionsIn = new HashSet<int>(connectionsIn);
             this.bias = bias;
+            id = innovation++;
         }
 
         public Node(int[] connectionsIn) {
@@ -36,13 +39,16 @@ public class NeuralNetwork : MonoBehaviour {
         public Node() {
             this.connectionsIn = new HashSet<int>();
         }
+
+        public int GetID() {
+            return id;
+        }
         
     }
 
-    public class InputNode : Node {}
-    public class OutputNode : Node {}
-
     public class Connection {
+
+        private static int innovation = 0;
 
         int innovationId;
 
@@ -67,6 +73,10 @@ public class NeuralNetwork : MonoBehaviour {
 
         public float GetWeight() {
             return weight;
+        }
+
+        public void SetWeight(float weight) {
+            this.weight = weight;
         }
 
         public int GetInnovationID() {
@@ -113,24 +123,52 @@ public class NeuralNetwork : MonoBehaviour {
         disabledGenes.Add(oldConnection.GetInnovationID());
         Connection conn1 = new Connection(oldConnection.GetInputNode(), nodes.Count, oldConnection.GetWeight());
         Connection conn2 = new Connection(nodes.Count, oldConnection.GetOutputNode(), 1.0f);
-        connections.Add(conn1);
-        connections.Add(conn2);
+        connections.Add(conn1.GetInnovationID(), conn1);
+        connections.Add(conn2.GetInnovationID(), conn2);
+        Node newNode = new Node(new int[] {conn1.GetInnovationID(), conn2.GetInnovationID()});
+        nodes.Add(newNode.GetID(), newNode);
+    }
 
-        nodes.Add(new Node(new int[] {conn1.GetInnovationID(), conn2.GetInnovationID()}));
+    void AddConnection() {
+        Node node1 = nodes[Random.Range(0, numInputs)];
+        Node node2 = nodes[Random.Range(numInputs, nodes.Count)];
+    }
+
+    void MutateConnection() {
+        int node1;
+        do {
+            node1 = nodes[Random.Range(0, nodes.Count)].GetID();
+        } while (node1 >= numInputs && node1 < numInputs + numOutputs);
+        
+        int node2 = nodes[Random.Range(numInputs, nodes.Count)].GetID();
+
+        if (node1 == node2) {
+            return;
+        }
+
+        if (node1 > node2) {
+            int tmp = node1;
+            node1 = node2;
+            node2 = tmp;
+        }
+
+        foreach (int connId in nodes[node2].connectionsIn) {
+
+            if (connections[connId].GetInputNode() == node1) {
+                connections[connId].SetWeight(Random.Range(-1.0f, 1.0f));
+                return;
+            }
+        }
+
+        Connection conn = new Connection(node1, node2, Random.Range(-1.0f, 1.0f));
+        connections.Add(conn.GetInnovationID(), conn);
     }
 
     void Awake() {
-        nodes = new List<Node>();
+        nodes = new Dictionary<int, Node>();
 
-        for (int i = 0; i < numInputs; i++) {
-            nodes.Add(new Node());
-        }
-
-        for (int i = 0; i < numOutputs; i++) {
-            List<Connection> conns = new List<Connection>();
-            for (int j = 0; j < numInputs; j++) {
-                conns.Add(new Connection(j, i, Random.Range(-1.0f, 1.0f)));
-            }
+        for (int i = 0; i < numInputs + numOutputs; i++) {
+            nodes.Add(i, new Node());
         }
     }
 
@@ -139,7 +177,7 @@ public class NeuralNetwork : MonoBehaviour {
     }
 
     void Update() {
-        float[] result = Evaluate(tests);
+        /*float[] result = Evaluate(tests);
         
         string output = "{ ";
         for (int i = 0; i < tests.Length; i++) {
@@ -162,7 +200,7 @@ public class NeuralNetwork : MonoBehaviour {
 
         output += " }";
 
-        Debug.Log(output);
+        Debug.Log(output);*/
     }
     
 }
