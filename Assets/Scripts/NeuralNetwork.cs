@@ -34,10 +34,15 @@ public class NeuralNetwork : MonoBehaviour {
 
         public Node(int[] connectionsIn) {
             this.connectionsIn = new HashSet<int>(connectionsIn);
+            id = innovation++;
         }
 
         public Node() {
             this.connectionsIn = new HashSet<int>();
+        }
+
+        public Node(int id) {
+            this.id = id;
         }
 
         public int GetID() {
@@ -168,39 +173,8 @@ public class NeuralNetwork : MonoBehaviour {
         nodes = new Dictionary<int, Node>();
 
         for (int i = 0; i < numInputs + numOutputs; i++) {
-            nodes.Add(i, new Node());
+            nodes.Add(i, new Node(i));
         }
-    }
-
-    void Start() {
-
-    }
-
-    void Update() {
-        /*float[] result = Evaluate(tests);
-        
-        string output = "{ ";
-        for (int i = 0; i < tests.Length; i++) {
-            if (i > 0) {
-                output += ", ";
-            }
-
-            output += tests[i].ToString();
-        }
-
-        output += " }, { ";
-
-        for (int i = 0; i < result.Length; i++) {
-            if (i > 0) {
-                output += ", ";
-            }
-
-            output += result[i].ToString();
-        }
-
-        output += " }";
-
-        Debug.Log(output);*/
     }
     
 }
