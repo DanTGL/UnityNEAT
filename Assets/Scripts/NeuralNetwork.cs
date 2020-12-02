@@ -1,70 +1,77 @@
 ﻿using UnityEngine;
+using System;
 using System.Linq;
 using System.Collections.Generic;
 
 public class NeuralNetwork : MonoBehaviour {
 
-    public Dictionary<int, Connection> connections;
+    public static Dictionary<int, Connection> connections = new Dictionary<int, Connection>();
+    
+    public Dictionary<int, float> weights;
 
     public HashSet<int> disabledGenes;
-    
-    public int hiddenNeurons = 5;
 
     public int numInputs;
 
     public int numOutputs;
 
-    public Dictionary<int, Node> nodes;
+    public int nodeInnovation = 0;
+    private static int innovation = 0;
 
-    public float[] tests;
+    public static int GetInnovation() {
+        return innovation;
+    }
+
+    public Dictionary<int, Node> nodes;
     
     public class Node {
         
-        private static int innovation = 0;
         int id;
 
         float bias = 0.0f;
         public HashSet<int> connectionsIn;
         
-        public Node(int[] connectionsIn, float bias) {
+        public Node(int[] connectionsIn, float bias, int id) {
             this.connectionsIn = new HashSet<int>(connectionsIn);
             this.bias = bias;
-            id = innovation++;
+            this.id = id;
         }
 
-        public Node(int[] connectionsIn) {
+        public Node(int[] connectionsIn, int id) {
             this.connectionsIn = new HashSet<int>(connectionsIn);
-            id = innovation++;
-        }
-
-        public Node() {
-            this.connectionsIn = new HashSet<int>();
+            this.id = id;
         }
 
         public Node(int id) {
+            this.connectionsIn = new HashSet<int>();
             this.id = id;
+        }
+        public Node(float bias, int id) {
+            this.connectionsIn = new HashSet<int>();
+            this.id = id;
+            this.bias = bias;
         }
 
         public int GetID() {
             return id;
+        }
+
+        public float GetBias() {
+            return bias;
         }
         
     }
 
     public class Connection {
 
-        private static int innovation = 0;
 
         int innovationId;
 
         int input, output;
 
-        float weight;
-
-        public Connection(int input, int output, float weight) {
+        public Connection(int input, int output) {
             this.input = input;
             this.output = output;
-            this.weight = weight;
             this.innovationId = innovation++;
         }
         
@@ -76,82 +83,101 @@ public class NeuralNetwork : MonoBehaviour {
             return output;
         }
 
-        public float GetWeight() {
-            return weight;
-        }
-
-        public void SetWeight(float weight) {
-            this.weight = weight;
-        }
-
         public int GetInnovationID() {
             return innovationId;
         }
-        
+
     }
 
-    public float GetValue(HashSet<int> conns, float[] inputs) {
+    public bool GetValue(HashSet<int> conns, float[] inputs, float threshold = 0.0f) {
         float result = 0.0f;
 
+        //TODO: Use Sigmoid function instead of step function
+
+        
         foreach (int i in conns) {
             Connection conn = connections[i];
-            if (disabledGenes.Contains(conn.GetInnovationID())) continue;
+            if (disabledGenes.Contains(i)) continue;
 
             if (conn.GetInputNode() < numInputs) {
-                result += conn.GetWeight() * inputs[conn.GetInputNode()];
+                result += weights[i] * inputs[conn.GetInputNode()];
             } else {
-                result += conn.GetWeight() * GetValue(nodes[conn.GetInputNode()].connectionsIn, inputs);
+                result += weights[i] * (float) Convert.ToDouble(GetValue(nodes[conn.GetInputNode()].connectionsIn, inputs, nodes[conn.GetInputNode()].GetBias()));
             }
         }
 
-        return result;
+        return result > threshold;
     }
 
-    public float[] Evaluate(float[] inputs) {
-        float[] outputs = new float[numOutputs];
+    public bool[] Evaluate(float[] inputs, float threshold = 0.0f) {
+        bool[] outputs = new bool[numOutputs];
 
         for (int i = 0; i < numOutputs; i++) {
             Node node = nodes[i + numInputs];
-            outputs[i] = GetValue(node.connectionsIn, inputs);
+            outputs[i] = GetValue(node.connectionsIn, inputs, threshold);
         }
 
         return outputs;
     }
 
-    void AddNode() {
-        Connection oldConnection;
+    public int AddNode(float bias = 0.0f, bool replaceConn=true) {
+        Node newNode;
+        if (replaceConn) {
 
-        do {
-            oldConnection = connections[Random.Range(0, connections.Count - 1)];
-        } while (disabledGenes.Contains(oldConnection.GetInnovationID()));
+            Connection oldConnection;
 
-        disabledGenes.Add(oldConnection.GetInnovationID());
-        Connection conn1 = new Connection(oldConnection.GetInputNode(), nodes.Count, oldConnection.GetWeight());
-        Connection conn2 = new Connection(nodes.Count, oldConnection.GetOutputNode(), 1.0f);
-        connections.Add(conn1.GetInnovationID(), conn1);
-        connections.Add(conn2.GetInnovationID(), conn2);
-        Node newNode = new Node(new int[] {conn1.GetInnovationID(), conn2.GetInnovationID()});
+            do {
+                oldConnection = connections[UnityEngine.Random.Range(0, connections.Count - 1)];
+            } while (disabledGenes.Contains(oldConnection.GetInnovationID()));
+
+            disabledGenes.Add(oldConnection.GetInnovationID());
+            //Connection conn1 = new Connection(oldConnection.GetInputNode(), nodes.Count, oldConnection.GetWeight());
+            //Connection conn2 = new Connection(nodes.Count, oldConnection.GetOutputNode(), 1.0f);
+            int conn1 = AddConnection(oldConnection.GetInputNode(), nodes.Count, weights[oldConnection.GetInnovationID()]);
+            int conn2 = AddConnection(nodes.Count, oldConnection.GetOutputNode(), 1.0f);
+
+            newNode = new Node(new int[] {conn1, conn2}, bias, nodeInnovation++);
+
+        } else {
+            newNode = new Node(bias, nodeInnovation++);
+        }
         nodes.Add(newNode.GetID(), newNode);
+        return newNode.GetID();
     }
 
-    void AddConnection() {
-        Node node1 = nodes[Random.Range(0, numInputs)];
-        Node node2 = nodes[Random.Range(numInputs, nodes.Count)];
+    public int AddConnection(int inputNode, int outputNode, float weight) {
+        foreach (int id in connections.Keys) {
+            if (connections[id].GetInputNode() == inputNode && connections[id].GetOutputNode() == outputNode) {
+                weights[id] = weight;
+                return id;
+            }
+        }
+
+        
+
+        Node node1 = nodes[inputNode];
+        Node node2 = nodes[outputNode];
+
+        Connection conn = new Connection(inputNode, outputNode);
+        node2.connectionsIn.Add(conn.GetInnovationID());
+        connections.Add(conn.GetInnovationID(), conn);
+        weights[conn.GetInnovationID()] = weight;
+        return conn.GetInnovationID();
     }
 
     void MutateConnection() {
         int node1;
         do {
-            node1 = nodes[Random.Range(0, nodes.Count)].GetID();
+            node1 = nodes[UnityEngine.Random.Range(0, nodes.Count)].GetID();
         } while (node1 >= numInputs && node1 < numInputs + numOutputs);
         
-        int node2 = nodes[Random.Range(numInputs, nodes.Count)].GetID();
+        int node2 = nodes[UnityEngine.Random.Range(numInputs, nodes.Count)].GetID();
 
         if (node1 == node2) {
             return;
         }
 
-        if (node1 > node2) {
+        if (node1 > node2 && node2 >= numInputs + numOutputs) {
             int tmp = node1;
             node1 = node2;
             node2 = tmp;
@@ -160,21 +186,32 @@ public class NeuralNetwork : MonoBehaviour {
         foreach (int connId in nodes[node2].connectionsIn) {
 
             if (connections[connId].GetInputNode() == node1) {
-                connections[connId].SetWeight(Random.Range(-1.0f, 1.0f));
+                weights[connId] = UnityEngine.Random.Range(-1.0f, 1.0f);
                 return;
             }
         }
 
-        Connection conn = new Connection(node1, node2, Random.Range(-1.0f, 1.0f));
+        Connection conn = new Connection(node1, node2);
+        weights[conn.GetInnovationID()] = UnityEngine.Random.Range(-1.0f, 1.0f);
         connections.Add(conn.GetInnovationID(), conn);
     }
 
     void Awake() {
         nodes = new Dictionary<int, Node>();
+        weights = new Dictionary<int, float>();
+        disabledGenes = new HashSet<int>();
 
-        for (int i = 0; i < numInputs + numOutputs; i++) {
-            nodes.Add(i, new Node(i));
+        for (int i = 0; i < numInputs; i++) {
+            nodes.Add(i, new Node(nodeInnovation++));
+        }
+
+        for (int i = numInputs; i < numInputs + numOutputs; i++) {
+            nodes.Add(i, new Node(nodeInnovation++));
         }
     }
     
+    public float Sigmoid(float x) {
+        return 1 / (1 + Mathf.Pow(2.71828f, -x));
+    }
+
 }
