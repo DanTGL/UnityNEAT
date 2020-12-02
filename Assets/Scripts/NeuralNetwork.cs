@@ -4,6 +4,10 @@ using System.Linq;
 using System.Collections.Generic;
 
 public class NeuralNetwork : MonoBehaviour {
+    
+    public static readonly float mutateConnectionChance = 0.05f;
+    public static readonly float addConnectionChance = 0.01f;
+    public static readonly float addNodeChance = 0.035f;
 
     public static Dictionary<int, Connection> connections = new Dictionary<int, Connection>();
     
@@ -11,9 +15,9 @@ public class NeuralNetwork : MonoBehaviour {
 
     public HashSet<int> disabledGenes;
 
-    public int numInputs;
+    public int numInputs = 2;
 
-    public int numOutputs;
+    public int numOutputs = 1;
 
     public int nodeInnovation = 0;
     private static int innovation = 0;
@@ -89,7 +93,7 @@ public class NeuralNetwork : MonoBehaviour {
 
     }
 
-    public bool GetValue(HashSet<int> conns, float[] inputs, float threshold = 0.0f) {
+    public float GetValue(HashSet<int> conns, float[] inputs, float threshold = 0.0f) {
         float result = 0.0f;
 
         //TODO: Use Sigmoid function instead of step function
@@ -102,19 +106,20 @@ public class NeuralNetwork : MonoBehaviour {
             if (conn.GetInputNode() < numInputs) {
                 result += weights[i] * inputs[conn.GetInputNode()];
             } else {
-                result += weights[i] * (float) Convert.ToDouble(GetValue(nodes[conn.GetInputNode()].connectionsIn, inputs, nodes[conn.GetInputNode()].GetBias()));
+                result += weights[i] * GetValue(nodes[conn.GetInputNode()].connectionsIn, inputs);
             }
         }
 
-        return result > threshold;
+        return Sigmoid(result);
     }
 
-    public bool[] Evaluate(float[] inputs, float threshold = 0.0f) {
-        bool[] outputs = new bool[numOutputs];
+    public float[] Evaluate(float[] inputs, float threshold = 0.0f) {
+        float[] outputs = new float[numOutputs];
 
         for (int i = 0; i < numOutputs; i++) {
             Node node = nodes[i + numInputs];
-            outputs[i] = GetValue(node.connectionsIn, inputs, threshold);
+            if (node.connectionsIn.Count != 0)
+                outputs[i] = GetValue(node.connectionsIn, inputs, threshold);
         }
 
         return outputs;
@@ -196,17 +201,30 @@ public class NeuralNetwork : MonoBehaviour {
         connections.Add(conn.GetInnovationID(), conn);
     }
 
-    void Awake() {
+    public void Init() {
         nodes = new Dictionary<int, Node>();
         weights = new Dictionary<int, float>();
         disabledGenes = new HashSet<int>();
 
         for (int i = 0; i < numInputs; i++) {
-            nodes.Add(i, new Node(nodeInnovation++));
+            AddNode(0.0f, false);
+            //nodes.Add(i, new Node(nodeInnovation++));
         }
 
         for (int i = numInputs; i < numInputs + numOutputs; i++) {
-            nodes.Add(i, new Node(nodeInnovation++));
+            AddNode(0.0f, false);
+            //nodes.Add(i, new Node(nodeInnovation++));
+        }
+    }
+
+    public void Mutate() {
+
+        if (UnityEngine.Random.Range(0.0f, 1.0f) < mutateConnectionChance) {
+            MutateConnection();
+        }
+
+        if (UnityEngine.Random.Range(0.0f, 1.0f) < addNodeChance) {
+            AddNode(0.0f, false);
         }
     }
     
